@@ -29,74 +29,40 @@ export default async (request, context) => {
       });
     }
 
-    let data;
+    const requestBody = {
+      model: 'gpt-4o-mini',
+      max_tokens: maxTokens || 500,
+      messages: [{ role: 'user', content: prompt }]
+    };
 
+    // Add web search for research tasks
     if (useSearch) {
-      // Use the Responses API with web_search tool for research tasks
-      const res = await fetch('https://api.openai.com/v1/responses', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          tools: [{ type: 'web_search' }],
-          input: prompt
-        })
-      });
-      const raw = await res.json();
-
-      if (raw.error) {
-        return new Response(JSON.stringify({ error: raw.error.message || JSON.stringify(raw.error) }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      // Extract text from Responses API output
-      let text = '';
-      if (raw.output) {
-        for (const item of raw.output) {
-          if (item.type === 'message' && item.content) {
-            for (const block of item.content) {
-              if (block.type === 'output_text') {
-                text += block.text;
-              }
-            }
-          }
-        }
-      }
-      data = { text };
-
-    } else {
-      // Use Chat Completions API for simple tasks (taglines, ad copy)
-      const res = await fetch('https://api.openai.com/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          max_tokens: maxTokens || 500,
-          messages: [{ role: 'user', content: prompt }]
-        })
-      });
-      const raw = await res.json();
-
-      if (raw.error) {
-        return new Response(JSON.stringify({ error: raw.error.message || JSON.stringify(raw.error) }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
-      const text = raw.choices?.[0]?.message?.content || '';
-      data = { text };
+      requestBody.web_search_options = {
+        search_context_size: 'medium'
+      };
+      requestBody.max_tokens = maxTokens || 2000;
     }
 
-    return new Response(JSON.stringify(data), {
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(requestBody)
+    });
+    const raw = await res.json();
+
+    if (raw.error) {
+      return new Response(JSON.stringify({ error: raw.error.message || JSON.stringify(raw.error) }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    const text = raw.choices?.[0]?.message?.content || '';
+
+    return new Response(JSON.stringify({ text }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
