@@ -1,8 +1,4 @@
-// Netlify serverless function — proxies AI requests to OpenAI and Pollinations
-// API keys are stored as Netlify environment variables (never exposed to the browser)
-
 export default async (request, context) => {
-  // Only allow POST
   if (request.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
@@ -13,7 +9,6 @@ export default async (request, context) => {
   try {
     const body = await request.json();
 
-    // IMAGE GENERATION via Pollinations
     if (body.type === 'image') {
       const pollinationsKey = Netlify.env.get('POLLINATIONS_API_KEY');
       if (!pollinationsKey) {
@@ -22,37 +17,23 @@ export default async (request, context) => {
           headers: { 'Content-Type': 'application/json' }
         });
       }
-
-      const { prompt, width, height, seed } = body;
-      const encoded = encodeURIComponent(prompt);
-      const imgUrl = `https://gen.pollinations.ai/image/${encoded}?width=${width || 600}&height=${height || 500}&seed=${seed || 1}&nologo=true&model=flux&key=${pollinationsKey}`;
-
-      // Verify the image generates successfully
-      const imgRes = await fetch(imgUrl, { method: 'HEAD' });
-      if (!imgRes.ok) {
-        return new Response(JSON.stringify({ error: `Pollinations returned ${imgRes.status}` }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        });
-      }
-
+      const encoded = encodeURIComponent(body.prompt);
+      const imgUrl = `https://gen.pollinations.ai/image/${encoded}?width=${body.width || 600}&height=${body.height || 500}&seed=${body.seed || 1}&nologo=true&model=flux&key=${pollinationsKey}`;
       return new Response(JSON.stringify({ imageUrl: imgUrl }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
-    // TEXT GENERATION via OpenAI
     const apiKey = Netlify.env.get('OPENAI_API_KEY');
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'OPENAI_API_KEY not configured in Netlify environment variables' }), {
+      return new Response(JSON.stringify({ error: 'OPENAI_API_KEY not configured' }), {
         status: 500,
         headers: { 'Content-Type': 'application/json' }
       });
     }
 
     const { prompt, maxTokens, useSearch } = body;
-
     if (!prompt) {
       return new Response(JSON.stringify({ error: 'Missing prompt' }), {
         status: 400,
@@ -67,9 +48,7 @@ export default async (request, context) => {
     };
 
     if (useSearch) {
-      requestBody.web_search_options = {
-        search_context_size: 'medium'
-      };
+      requestBody.web_search_options = { search_context_size: 'medium' };
       requestBody.max_tokens = maxTokens || 2000;
     }
 
@@ -90,9 +69,7 @@ export default async (request, context) => {
       });
     }
 
-    const text = raw.choices?.[0]?.message?.content || '';
-
-    return new Response(JSON.stringify({ text }), {
+    return new Response(JSON.stringify({ text: raw.choices?.[0]?.message?.content || '' }), {
       status: 200,
       headers: { 'Content-Type': 'application/json' }
     });
