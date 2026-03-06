@@ -27,19 +27,16 @@ export default async (request, context) => {
       const encoded = encodeURIComponent(prompt);
       const imgUrl = `https://gen.pollinations.ai/image/${encoded}?width=${width || 600}&height=${height || 500}&seed=${seed || 1}&nologo=true&model=flux&key=${pollinationsKey}`;
 
-      // Fetch the image and return it as base64
-      const imgRes = await fetch(imgUrl);
+      // Verify the image generates successfully
+      const imgRes = await fetch(imgUrl, { method: 'HEAD' });
       if (!imgRes.ok) {
         return new Response(JSON.stringify({ error: `Pollinations returned ${imgRes.status}` }), {
           status: 400,
           headers: { 'Content-Type': 'application/json' }
         });
       }
-      const imgBuffer = await imgRes.arrayBuffer();
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
-      const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
 
-      return new Response(JSON.stringify({ imageUrl: `data:${contentType};base64,${base64}` }), {
+      return new Response(JSON.stringify({ imageUrl: imgUrl }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
       });
