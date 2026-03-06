@@ -1,5 +1,5 @@
-// Netlify serverless function — proxies AI requests to OpenAI
-// The OPENAI_API_KEY is stored as a Netlify environment variable (never exposed to the browser)
+// Netlify serverless function — proxies AI requests to OpenAI and Pollinations
+// API keys are stored as Netlify environment variables (never exposed to the browser)
 
 export default async (request, context) => {
   // Only allow POST
@@ -10,16 +10,50 @@ export default async (request, context) => {
     });
   }
 
-  const apiKey = Netlify.env.get('OPENAI_API_KEY');
-  if (!apiKey) {
-    return new Response(JSON.stringify({ error: 'OPENAI_API_KEY not configured in Netlify environment variables' }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' }
-    });
-  }
-
   try {
     const body = await request.json();
+
+    // IMAGE GENERATION via Pollinations
+    if (body.type === 'image') {
+      const pollinationsKey = Netlify.env.get('POLLINATIONS_API_KEY');
+      if (!pollinationsKey) {
+        return new Response(JSON.stringify({ error: 'POLLINATIONS_API_KEY not configured' }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+
+      const { prompt, width, height, seed } = body;
+      const encoded = encodeURIComponent(prompt);
+      const imgUrl = `https://gen.pollinations.ai/image/${encoded}?width=${width || 600}&height=${height || 500}&seed=${seed || 1}&nologo=true&model=flux&key=${pollinationsKey}`;
+
+      // Fetch the image and return it as base64
+      const imgRes = await fetch(imgUrl);
+      if (!imgRes.ok) {
+        return new Response(JSON.stringify({ error: `Pollinations returned ${imgRes.status}` }), {
+          status: 400,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      const imgBuffer = await imgRes.arrayBuffer();
+      const base64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
+      const contentType = imgRes.headers.get('content-type') || 'image/jpeg';
+
+      return new Response(JSON.stringify({ imageUrl: `data:${contentType};base64,${base64}` }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
+    // TEXT GENERATION via OpenAI
+    const apiKey = Netlify.env.get('OPENAI_API_KEY');
+    if (!apiKey) {
+      return new Response(JSON.stringify({ error: 'OPENAI_API_KEY not configured in Netlify environment variables' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+
     const { prompt, maxTokens, useSearch } = body;
 
     if (!prompt) {
@@ -35,7 +69,6 @@ export default async (request, context) => {
       messages: [{ role: 'user', content: prompt }]
     };
 
-    // Add web search for research tasks
     if (useSearch) {
       requestBody.web_search_options = {
         search_context_size: 'medium'
