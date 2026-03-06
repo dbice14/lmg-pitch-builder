@@ -1034,9 +1034,15 @@ async function generateAd(num) {
     let imgUrl = null;
 
     if (backend === 'pollinations') {
-      const encoded = encodeURIComponent(adPrompt);
-      const seed = Math.floor(Math.random() * 99999);
-      imgUrl = `https://image.pollinations.ai/prompt/${encoded}?width=600&height=500&seed=${seed}&nologo=true&model=flux`;
+     const seed = Math.floor(Math.random() * 99999);
+      const res2 = await fetch('/.netlify/functions/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'image', prompt: adPrompt, width: 600, height: 500, seed })
+      });
+      const data2 = await res2.json();
+      if (data2.error) throw new Error(data2.error);
+      imgUrl = data2.imageUrl;
     } else {
       const res = await fetch('https://fal.run/fal-ai/flux/schnell', {
         method: 'POST',
@@ -1130,8 +1136,15 @@ async function generatePPCMockup(num) {
   try {
     let imgUrl = null;
     if (backend === 'pollinations') {
-      const seed = Math.floor(Math.random() * 99999);
-      imgUrl = `https://image.pollinations.ai/prompt/${encodeURIComponent(mockupPrompt)}?width=800&height=500&seed=${seed}&nologo=true&model=flux`;
+    const seed = Math.floor(Math.random() * 99999);
+      const res2 = await fetch('/.netlify/functions/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'image', prompt: mockupPrompt, width: 800, height: 500, seed })
+      });
+      const data2 = await res2.json();
+      if (data2.error) throw new Error(data2.error);
+      imgUrl = data2.imageUrl;
     } else {
       const res = await fetch('https://fal.run/fal-ai/flux/schnell', {
         method: 'POST',
