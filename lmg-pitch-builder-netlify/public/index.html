@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1489,18 +1488,14 @@ async function buildPptxBlob() {
 
     // Slide 5: PPC cost, clicks, total, Ad Sync tagline
     if (slidePath.includes('slide5')) {
-      // PPC cost line — joined
-      content = content.replace(/<a:t>\$\/mo<\/a:t>/, `<a:t>${ppcLine}/mo</a:t>`);
-      // PPC cost line — split: <a:t>$</a:t>...<a:t>/mo</a:t>
-      content = content.replace(/<a:t>\$<\/a:t>([\s\S]{0,300}?)<a:t>\/mo<\/a:t>/, `<a:t>${ppcLine}/mo</a:t>`);
+      // PPC cost line: template has <a:t>$/</a:t>...<a:t>mo</a:t>
+      content = content.replace(/<a:t>\$\/<\/a:t>([\s\S]{0,400}?)<a:t>mo<\/a:t>/, `<a:t>${ppcLine}/</a:t>$1<a:t>mo</a:t>`);
 
-      // Clicks
-      content = content.replace('<a:t> Estimated Clicks</a:t>', `<a:t>${clicks} Estimated Clicks</a:t>`);
+      // Clicks: template has <a:t> Estimated Clicks</a:t> (number is separate or missing)
+      content = content.replace('<a:t> Estimated Clicks</a:t>', `<a:t> ${clicks} Estimated Clicks</a:t>`);
 
-      // Total — joined
-      content = content.replace(/<a:t>\$ per month<\/a:t>/, `<a:t>${total6} per month</a:t>`);
-      // Total — split
-      content = content.replace(/<a:t>\$<\/a:t>([\s\S]{0,300}?)<a:t> ?per month<\/a:t>/, `<a:t>${total6} per month</a:t>`);
+      // Total: template has <a:t>$ </a:t>...<a:t>per month </a:t>
+      content = content.replace(/<a:t>\$ <\/a:t>([\s\S]{0,400}?)<a:t>per month <\/a:t>/, `<a:t>${total6} </a:t>$1<a:t>per month </a:t>`);
 
       // Ad Sync tagline
       const tagline = state.ads.tagline || '';
@@ -1545,26 +1540,23 @@ async function buildPptxBlob() {
 
     // Slide 6: two option tables — 6mo and 12mo
     if (slidePath.includes('slide6')) {
-      // PPC cost lines — joined
-      content = content.replaceAll('<a:t>$/mo</a:t>', `<a:t>${ppcLine}/mo</a:t>`);
-      // PPC cost lines — split
-      content = content.replace(/<a:t>\$<\/a:t>([\s\S]{0,300}?)<a:t>\/mo<\/a:t>/g, `<a:t>${ppcLine}/mo</a:t>`);
+      // PPC cost lines: template has <a:t>$/</a:t>...<a:t>mo</a:t> (appears twice)
+      content = content.replace(/<a:t>\$\/<\/a:t>([\s\S]{0,400}?)<a:t>mo<\/a:t>/g, (match, middle) => {
+        return `<a:t>${ppcLine}/</a:t>${middle}<a:t>mo</a:t>`;
+      });
 
-      // Clicks
+      // Clicks — first table has joined "200-220 Estimated Clicks", second has separate " Estimated Clicks"
       content = content.replace('200-220 Estimated Clicks', `${clicks} Estimated Clicks`);
       content = content.replace('200–220 Estimated Clicks', `${clicks} Estimated Clicks`);
-      content = content.replace('<a:t> Estimated Clicks</a:t>', `<a:t>${clicks} Estimated Clicks</a:t>`);
+      content = content.replace('<a:t> Estimated Clicks</a:t>', `<a:t> ${clicks} Estimated Clicks</a:t>`);
 
-      // Total rows — first = 6mo, second = 12mo
-      let perMoCount = 0;
-      content = content.replace(/<a:t>\$ per month<\/a:t>/g, () => {
-        perMoCount++;
-        return `<a:t>${perMoCount === 1 ? total6 : total12} per month</a:t>`;
-      });
-      // Split totals
-      content = content.replace(/<a:t>\$<\/a:t>([\s\S]{0,300}?)<a:t> ?per month<\/a:t>/g, () => {
-        perMoCount++;
-        return `<a:t>${perMoCount === 2 ? total6 : total12} per month</a:t>`;
+      // Total rows: template has <a:t>$ </a:t>...<a:t>per month </a:t> (appears twice)
+      // First = 6mo total, second = 12mo total
+      let totalCount = 0;
+      content = content.replace(/<a:t>\$ <\/a:t>([\s\S]{0,400}?)<a:t>per month <\/a:t>/g, (match, middle) => {
+        totalCount++;
+        const val = totalCount === 1 ? total6 : total12;
+        return `<a:t>${val} </a:t>${middle}<a:t>per month </a:t>`;
       });
     }
 
