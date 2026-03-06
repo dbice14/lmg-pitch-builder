@@ -462,6 +462,7 @@
 </style>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 
@@ -537,26 +538,6 @@
       <div class="loading-text" id="researchStatus">Visiting website...</div>
     </div>
 
-    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--border);">
-      <div style="font-size:0.78rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--mid);margin-bottom:10px;">Ad Image Backend</div>
-      <div style="display:flex;gap:16px;flex-wrap:wrap;">
-        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;text-transform:none;letter-spacing:0;font-weight:500;margin:0;cursor:pointer;">
-          <input type="radio" name="imgBackend" value="pollinations" checked onchange="switchBackend(this.value)">
-          <span>🌸 Pollinations.ai <span style="color:var(--green);font-weight:700;">FREE</span> — no key needed</span>
-        </label>
-        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;text-transform:none;letter-spacing:0;font-weight:500;margin:0;cursor:pointer;">
-          <input type="radio" name="imgBackend" value="fal" onchange="switchBackend(this.value)">
-          <span>⚡ fal.ai — higher quality, ~$0.003/image</span>
-        </label>
-      </div>
-      <div id="falKeySection" style="display:none;margin-top:10px;">
-        <div class="api-key-row">
-          <input type="password" id="falKey" placeholder="fal-..." style="flex:1;" />
-          <button class="btn btn-ghost btn-sm" onclick="document.getElementById('falKey').type=document.getElementById('falKey').type==='password'?'text':'password'">Show</button>
-        </div>
-      </div>
-      <div id="pollinationsNote" style="font-size:0.75rem;color:var(--mid);margin-top:6px;">Completely free, no signup. ~10s per image. Great for demos.</div>
-    </div>
   </div>
 
   <!-- STEP 3: RESEARCH RESULTS -->
@@ -600,8 +581,8 @@
     <div class="section-header">
       <div class="section-num" id="num5">4</div>
       <div>
-        <div class="section-title">Ad Creative Generation</div>
-        <div class="section-subtitle">Generate 3 display ads (300×250px) + 1 Google Search mockup image</div>
+        <div class="section-title">Ad Creative</div>
+        <div class="section-subtitle">Auto-generate display ads or upload your own from AdCreative.ai</div>
       </div>
     </div>
 
@@ -612,22 +593,30 @@
 
     <!-- DISPLAY ADS -->
     <div id="displayAdPanel">
-      <p style="font-size:0.85rem; color:var(--mid); margin-bottom:12px;">300×250px — using <strong id="currentBackendLabel">Pollinations.ai (free)</strong>. On-brand, eye-catching, minimal text.</p>
+      <p style="font-size:0.85rem; color:var(--mid); margin-bottom:12px;">300×250 — click <strong>Generate</strong> for an auto-built ad, or <strong>Upload</strong> your own.</p>
       <div class="img-grid">
         <div class="img-slot" id="adSlot1" style="aspect-ratio:6/5;">
           <div class="img-slot-label">Display Ad 1<br><span style="font-size:0.65rem;">300×250</span></div>
-          <button class="btn btn-sm btn-primary gen-btn" onclick="generateAd(1)">Generate</button>
+          <div style="display:flex;gap:6px;position:absolute;bottom:12px;">
+            <button class="btn btn-sm btn-primary" onclick="generateAd(1)">Generate</button>
+            <button class="btn btn-sm btn-ghost" onclick="uploadAd(1)">Upload</button>
+          </div>
+          <input type="file" id="adUpload1" accept="image/*" style="display:none" onchange="handleAdUpload(1,this)">
         </div>
         <div class="img-slot" id="adSlot2" style="aspect-ratio:6/5;">
           <div class="img-slot-label">Display Ad 2<br><span style="font-size:0.65rem;">300×250</span></div>
-          <button class="btn btn-sm btn-primary gen-btn" onclick="generateAd(2)" disabled id="genBtn2">Generate</button>
+          <div style="display:flex;gap:6px;position:absolute;bottom:12px;">
+            <button class="btn btn-sm btn-primary" onclick="generateAd(2)">Generate</button>
+            <button class="btn btn-sm btn-ghost" onclick="uploadAd(2)">Upload</button>
+          </div>
+          <input type="file" id="adUpload2" accept="image/*" style="display:none" onchange="handleAdUpload(2,this)">
         </div>
       </div>
     </div>
 
     <!-- PPC PREVIEW -->
     <div id="ppcPreviewPanel" style="display:none;">
-      <p style="font-size:0.85rem; color:var(--mid); margin-bottom:12px;">Two Google Search result mockups — each looks like a real screenshot of their sponsored listing. Plus an Ad Sync tagline for slide 5.</p>
+      <p style="font-size:0.85rem; color:var(--mid); margin-bottom:12px;">Google Search mockups + Ad Sync tagline. Generate or upload your own.</p>
 
       <div style="margin-bottom:16px;">
         <div style="font-size:0.78rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--mid);margin-bottom:8px;">Ad Sync Tagline</div>
@@ -635,23 +624,31 @@
           <input type="text" id="taglineInput" placeholder="Generating..." style="flex:1;font-size:0.9rem;" oninput="state.ads.tagline=this.value" />
           <button class="btn btn-ghost btn-sm" onclick="generateTagline()">↺ Regenerate</button>
         </div>
-        <div style="font-size:0.75rem;color:var(--mid);margin-top:4px;">Short punchy line used as Ad Sync Text on slide 5 (e.g. "Griffin Real Estate Team: ready to assist you.")</div>
+        <div style="font-size:0.75rem;color:var(--mid);margin-top:4px;">Short punchy line for Ad Sync Text on slide 5</div>
       </div>
 
       <div style="font-size:0.78rem;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;color:var(--mid);margin-bottom:8px;">Google Search Mockups</div>
       <div class="two-col" style="gap:12px;">
         <div>
-          <div style="font-size:0.75rem;color:var(--mid);margin-bottom:6px;">Mockup 1 — goes in [ppc 1] slot</div>
+          <div style="font-size:0.75rem;color:var(--mid);margin-bottom:6px;">Mockup 1</div>
           <div class="img-slot" id="ppcSlot1" style="aspect-ratio:16/10;">
             <div class="img-slot-label">PPC Mockup 1</div>
-            <button class="btn btn-sm btn-primary gen-btn" onclick="generatePPCMockup(1)">Generate</button>
+            <div style="display:flex;gap:6px;position:absolute;bottom:12px;">
+              <button class="btn btn-sm btn-primary" onclick="generatePPCMockup(1)">Generate</button>
+              <button class="btn btn-sm btn-ghost" onclick="uploadPPC(1)">Upload</button>
+            </div>
+            <input type="file" id="ppcUpload1" accept="image/*" style="display:none" onchange="handlePPCUpload(1,this)">
           </div>
         </div>
         <div>
-          <div style="font-size:0.75rem;color:var(--mid);margin-bottom:6px;">Mockup 2 — goes in [Ppc 2] slot</div>
+          <div style="font-size:0.75rem;color:var(--mid);margin-bottom:6px;">Mockup 2</div>
           <div class="img-slot" id="ppcSlot2" style="aspect-ratio:16/10;">
             <div class="img-slot-label">PPC Mockup 2</div>
-            <button class="btn btn-sm btn-primary gen-btn" onclick="generatePPCMockup(2)" disabled id="ppcBtn2">Generate</button>
+            <div style="display:flex;gap:6px;position:absolute;bottom:12px;">
+              <button class="btn btn-sm btn-primary" onclick="generatePPCMockup(2)">Generate</button>
+              <button class="btn btn-sm btn-ghost" onclick="uploadPPC(2)">Upload</button>
+            </div>
+            <input type="file" id="ppcUpload2" accept="image/*" style="display:none" onchange="handlePPCUpload(2,this)">
           </div>
         </div>
       </div>
@@ -1030,79 +1027,126 @@ function switchAdTab(tab) {
 }
 
 async function generateAd(num) {
-  const backend = state.imgBackend || 'pollinations';
-  if (backend === 'fal' && !state.falKey) {
-    showToast('fal.ai API key required — switch to Pollinations or add your key', 'error');
-    return;
-  }
-
   const slot = document.getElementById(`adSlot${num}`);
-  const btn = slot.querySelector('.gen-btn');
-  btn.disabled = true;
-  btn.textContent = '...';
-
-  const overlay = document.createElement('div');
-  overlay.className = 'gen-overlay';
-  overlay.innerHTML = `<div style="text-align:center"><div class="spinner" style="width:28px;height:28px;border-width:3px;margin:0 auto 8px"></div><div style="font-size:0.72rem;color:rgba(255,255,255,0.7);">Generating...</div></div>`;
-  slot.appendChild(overlay);
-
   const { name, city, industry } = state.client;
 
-  const angles = [
-    `hook: a bold benefit statement for ${industry}. CTA button text: "Get a Free Quote". Minimal text, eye-catching visuals.`,
-    `hook: urgency angle — limited availability or seasonal need for ${industry}. CTA button text: "Call Now". Strong contrast colors.`,
-    `hook: trust/social proof angle for ${industry} — years in business, local reputation. CTA button text: "Book Today". Professional warm tones.`
-  ];
-  const angle = angles[(num - 1) % 3];
+  if (!name) { showToast('Run research first', 'error'); return; }
 
-  const adPrompt = `Professional 300x250 pixel Google Display Network banner ad for "${name}", a ${industry} company in ${city}. ${angle} Design rules: company name "${name}" visible, minimal text (headline + subline + CTA button only), bold eye-catching colors that match a ${industry} brand, high contrast CTA button, no stock photo clutter. Looks like a real clickable display ad.`;
+  // Show loading
+  slot.innerHTML = `<div class="gen-overlay"><div class="spinner" style="width:28px;height:28px;border-width:3px;"></div></div>`;
+
+  const headlines = [
+    `Your Trusted ${industry} Experts`,
+    `${city}'s #1 ${industry} Team`,
+    `Quality ${industry} You Can Count On`
+  ];
+  const ctas = ['Get a Free Quote', 'Call Now', 'Book Today'];
+  const colors = [
+    { bg: '#1a365d', accent: '#e53e3e', text: '#ffffff' },
+    { bg: '#2d3748', accent: '#38a169', text: '#ffffff' },
+    { bg: '#1a202c', accent: '#d69e2e', text: '#ffffff' }
+  ];
+  const idx = (num - 1) % 3;
+  const headline = headlines[idx];
+  const cta = ctas[idx];
+  const color = colors[idx];
+
+  // Fetch stock photo from Unsplash
+  let bgImg = '';
+  try {
+    const imgRes = await fetch(`https://source.unsplash.com/600x500/?${encodeURIComponent(industry)},business`);
+    bgImg = imgRes.url;
+  } catch(e) { bgImg = ''; }
+
+  // Build the ad as an offscreen HTML element
+  const adEl = document.createElement('div');
+  adEl.style.cssText = `width:300px;height:250px;position:relative;overflow:hidden;font-family:'Outfit',Arial,sans-serif;border-radius:0;`;
+  adEl.innerHTML = `
+    <div style="position:absolute;inset:0;background:${bgImg ? `url('${bgImg}') center/cover` : color.bg};"></div>
+    <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,0.3) 0%,rgba(0,0,0,0.75) 100%);"></div>
+    <div style="position:relative;height:100%;display:flex;flex-direction:column;justify-content:flex-end;padding:20px;">
+      <div style="font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:rgba(255,255,255,0.7);margin-bottom:6px;">${industry} • ${city}</div>
+      <div style="font-size:22px;font-weight:700;color:#fff;line-height:1.2;margin-bottom:4px;">${name}</div>
+      <div style="font-size:14px;color:rgba(255,255,255,0.85);margin-bottom:14px;">${headline}</div>
+      <div style="display:inline-block;background:${color.accent};color:#fff;font-size:13px;font-weight:700;padding:8px 20px;border-radius:6px;text-align:center;width:fit-content;">${cta}</div>
+    </div>
+  `;
+
+  document.body.appendChild(adEl);
 
   try {
-    let imgUrl = null;
-
-    if (backend === 'pollinations') {
-      const seed = Math.floor(Math.random() * 99999);
-      const res = await fetch('/.netlify/functions/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'image', prompt: adPrompt, width: 600, height: 500, seed })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      imgUrl = data.imageUrl;
-    } else {
-      const res = await fetch('https://fal.run/fal-ai/flux/schnell', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Key ${state.falKey}` },
-        body: JSON.stringify({ prompt: adPrompt, image_size: { width: 600, height: 500 }, num_images: 1, num_inference_steps: 4 })
-      });
-      const data = await res.json();
-      imgUrl = data.images?.[0]?.url;
-    }
-
-    if (imgUrl) {
-      await new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = imgUrl;
-        setTimeout(reject, 45000);
-      });
-
-      slot.innerHTML = `
-        <img src="${imgUrl}" alt="Display Ad ${num}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" />
-        <div style="position:absolute;bottom:6px;right:6px;background:rgba(0,0,0,0.6);color:white;font-size:0.65rem;padding:2px 6px;border-radius:4px;">${backend === 'pollinations' ? '🌸' : '⚡'}</div>
-      `;
-      state.ads[`img${num}`] = imgUrl;
-
-      if (num === 1) document.getElementById('genBtn2').disabled = false;
-      showToast(`Display Ad ${num} generated`, 'success');
-    }
+    const canvas = await html2canvas(adEl, { width: 300, height: 250, scale: 2, useCORS: true, allowTaint: true });
+    const dataUrl = canvas.toDataURL('image/png');
+    state.ads[`img${num}`] = dataUrl;
+    slot.innerHTML = `
+      <img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:14px;" />
+      <div style="position:absolute;bottom:8px;display:flex;gap:6px;">
+        <button class="btn btn-sm btn-ghost" style="background:rgba(0,0,0,0.5);color:white;border:none;backdrop-filter:blur(8px);" onclick="generateAd(${num})">↺ Regenerate</button>
+        <button class="btn btn-sm btn-ghost" style="background:rgba(0,0,0,0.5);color:white;border:none;backdrop-filter:blur(8px);" onclick="uploadAd(${num})">Upload</button>
+      </div>
+      <input type="file" id="adUpload${num}" accept="image/*" style="display:none" onchange="handleAdUpload(${num},this)">
+    `;
+    showToast(`Display Ad ${num} generated`, 'success');
   } catch(e) {
-    slot.innerHTML = `<div class="img-slot-label" style="color:var(--red)">Failed<br><small>Try again</small></div><button class="btn btn-sm btn-primary gen-btn" onclick="generateAd(${num})">Retry</button>`;
-    showToast(`Ad ${num} failed — try again`, 'error');
+    slot.innerHTML = `<div class="img-slot-label" style="color:var(--red)">Failed</div>
+      <div style="display:flex;gap:6px;position:absolute;bottom:12px;">
+        <button class="btn btn-sm btn-primary" onclick="generateAd(${num})">Retry</button>
+        <button class="btn btn-sm btn-ghost" onclick="uploadAd(${num})">Upload</button>
+      </div>
+      <input type="file" id="adUpload${num}" accept="image/*" style="display:none" onchange="handleAdUpload(${num},this)">`;
+    showToast(`Ad ${num} failed`, 'error');
   }
-  slot.querySelector('.gen-overlay')?.remove();
+  document.body.removeChild(adEl);
+}
+
+function uploadAd(num) {
+  document.getElementById(`adUpload${num}`).click();
+}
+
+function handleAdUpload(num, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataUrl = e.target.result;
+    state.ads[`img${num}`] = dataUrl;
+    const slot = document.getElementById(`adSlot${num}`);
+    slot.innerHTML = `
+      <img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:14px;" />
+      <div style="position:absolute;bottom:8px;display:flex;gap:6px;">
+        <button class="btn btn-sm btn-ghost" style="background:rgba(0,0,0,0.5);color:white;border:none;backdrop-filter:blur(8px);" onclick="generateAd(${num})">↺ Generate</button>
+        <button class="btn btn-sm btn-ghost" style="background:rgba(0,0,0,0.5);color:white;border:none;backdrop-filter:blur(8px);" onclick="uploadAd(${num})">Replace</button>
+      </div>
+      <input type="file" id="adUpload${num}" accept="image/*" style="display:none" onchange="handleAdUpload(${num},this)">
+    `;
+    showToast(`Display Ad ${num} uploaded`, 'success');
+  };
+  reader.readAsDataURL(file);
+}
+
+function uploadPPC(num) {
+  document.getElementById(`ppcUpload${num}`).click();
+}
+
+function handlePPCUpload(num, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataUrl = e.target.result;
+    state.ads[`ppcImg${num}`] = dataUrl;
+    const slot = document.getElementById(`ppcSlot${num}`);
+    slot.innerHTML = `
+      <img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:14px;" />
+      <div style="position:absolute;bottom:8px;display:flex;gap:6px;">
+        <button class="btn btn-sm btn-ghost" style="background:rgba(0,0,0,0.5);color:white;border:none;backdrop-filter:blur(8px);" onclick="generatePPCMockup(${num})">↺ Generate</button>
+        <button class="btn btn-sm btn-ghost" style="background:rgba(0,0,0,0.5);color:white;border:none;backdrop-filter:blur(8px);" onclick="uploadPPC(${num})">Replace</button>
+      </div>
+      <input type="file" id="ppcUpload${num}" accept="image/*" style="display:none" onchange="handlePPCUpload(${num},this)">
+    `;
+    showToast(`PPC Mockup ${num} uploaded`, 'success');
+  };
+  reader.readAsDataURL(file);
 }
 
 async function generateTagline() {
@@ -1130,17 +1174,13 @@ async function generateTagline() {
 
 async function generatePPCMockup(num) {
   const { name, url, city, industry } = state.client;
-  const backend = state.imgBackend || 'pollinations';
   const slot = document.getElementById(`ppcSlot${num}`);
-  const btn = slot.querySelector('.gen-btn');
-  btn.disabled = true; btn.textContent = '...';
 
-  const overlay = document.createElement('div');
-  overlay.className = 'gen-overlay';
-  overlay.innerHTML = '<div class="spinner" style="width:24px;height:24px;border-width:3px;margin:auto;"></div>';
-  slot.appendChild(overlay);
+  if (!name) { showToast('Run research first', 'error'); return; }
 
-  // First call: get ad copy if not already done
+  slot.innerHTML = `<div class="gen-overlay"><div class="spinner" style="width:24px;height:24px;border-width:3px;"></div></div>`;
+
+  // Get ad copy if not already done
   if (!state.ads.ppcCopy) {
     try {
       const copyRes = await claudeCall(
@@ -1156,43 +1196,53 @@ async function generatePPCMockup(num) {
   }
 
   const c = state.ads.ppcCopy;
-  // Vary the search query slightly for mockup 2
   const searchQ = num === 1 ? c.search_query : `best ${industry.toLowerCase()} near me`;
-  const mockupPrompt = `Photorealistic screenshot of a Google Search results page. White background, standard Google UI. Search bar at top shows "${searchQ}". First result is a sponsored ad: green "Sponsored" badge, bold blue headline "${c.headline1} | ${c.headline2} | ${c.headline3}", green URL "${c.display_url}", gray description "${c.description1} ${c.description2}". Below it: 2 organic blue-link results from competitors with gray URLs and descriptions. Looks exactly like a real Google search page. Clean, crisp, no distortion.`;
+
+  // Build PPC mockup as HTML
+  const mockEl = document.createElement('div');
+  mockEl.style.cssText = `width:400px;height:250px;background:#fff;font-family:Arial,sans-serif;padding:16px;overflow:hidden;`;
+  mockEl.innerHTML = `
+    <div style="background:#f8f9fa;border:1px solid #dfe1e5;border-radius:24px;padding:8px 16px;font-size:14px;color:#202124;margin-bottom:16px;">${searchQ}</div>
+    <div style="margin-bottom:14px;">
+      <div style="font-size:11px;color:#202124;margin-bottom:2px;">
+        <span style="background:#f1f3f4;color:#202124;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:500;border:1px solid #dadce0;">Sponsored</span>
+      </div>
+      <div style="font-size:12px;color:#202124;margin:4px 0 2px;">${c.display_url || ''}</div>
+      <div style="font-size:18px;color:#1a0dab;font-weight:400;line-height:1.3;margin-bottom:4px;">${c.headline1} | ${c.headline2} | ${c.headline3}</div>
+      <div style="font-size:13px;color:#4d5156;line-height:1.4;">${c.description1} ${c.description2}</div>
+    </div>
+    <div style="border-top:1px solid #ebebeb;padding-top:10px;">
+      <div style="font-size:12px;color:#202124;margin-bottom:2px;">www.competitor-${industry.toLowerCase().replace(/\s/g,'')}.com</div>
+      <div style="font-size:16px;color:#1a0dab;margin-bottom:3px;">${industry} Services Near You</div>
+      <div style="font-size:13px;color:#4d5156;">Professional ${industry.toLowerCase()} services in the ${city} area...</div>
+    </div>
+  `;
+
+  document.body.appendChild(mockEl);
 
   try {
-    let imgUrl = null;
-    if (backend === 'pollinations') {
-      const seed = Math.floor(Math.random() * 99999);
-      const res = await fetch('/.netlify/functions/ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'image', prompt: mockupPrompt, width: 800, height: 500, seed })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error);
-      imgUrl = data.imageUrl;
-    } else {
-      const res = await fetch('https://fal.run/fal-ai/flux/schnell', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Key ${state.falKey}` },
-        body: JSON.stringify({ prompt: mockupPrompt, image_size: { width: 800, height: 500 }, num_images: 1, num_inference_steps: 4 })
-      });
-      const data = await res.json();
-      imgUrl = data.images?.[0]?.url;
-    }
-    if (imgUrl) {
-      await new Promise((res, rej) => { const i = new Image(); i.onload=res; i.onerror=rej; i.src=imgUrl; setTimeout(rej,45000); });
-      slot.innerHTML = `<img src="${imgUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:8px;" /><div style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.6);color:white;font-size:0.6rem;padding:2px 5px;border-radius:3px;">${backend==='pollinations'?'🌸':'⚡'}</div>`;
-      state.ads[`ppcImg${num}`] = imgUrl;
-      if (num === 1) document.getElementById('ppcBtn2').disabled = false;
-      showToast(`PPC Mockup ${num} generated`, 'success');
-    }
+    const canvas = await html2canvas(mockEl, { width: 400, height: 250, scale: 2 });
+    const dataUrl = canvas.toDataURL('image/png');
+    state.ads[`ppcImg${num}`] = dataUrl;
+    slot.innerHTML = `
+      <img src="${dataUrl}" style="width:100%;height:100%;object-fit:cover;border-radius:14px;" />
+      <div style="position:absolute;bottom:8px;display:flex;gap:6px;">
+        <button class="btn btn-sm btn-ghost" style="background:rgba(0,0,0,0.5);color:white;border:none;backdrop-filter:blur(8px);" onclick="generatePPCMockup(${num})">↺ Regenerate</button>
+        <button class="btn btn-sm btn-ghost" style="background:rgba(0,0,0,0.5);color:white;border:none;backdrop-filter:blur(8px);" onclick="uploadPPC(${num})">Upload</button>
+      </div>
+      <input type="file" id="ppcUpload${num}" accept="image/*" style="display:none" onchange="handlePPCUpload(${num},this)">
+    `;
+    showToast(`PPC Mockup ${num} generated`, 'success');
   } catch(e) {
-    slot.innerHTML = `<div class="img-slot-label" style="color:var(--red)">Failed<br><small>Try again</small></div><button class="btn btn-sm btn-primary gen-btn" onclick="generatePPCMockup(${num})">Retry</button>`;
+    slot.innerHTML = `<div class="img-slot-label" style="color:var(--red)">Failed</div>
+      <div style="display:flex;gap:6px;position:absolute;bottom:12px;">
+        <button class="btn btn-sm btn-primary" onclick="generatePPCMockup(${num})">Retry</button>
+        <button class="btn btn-sm btn-ghost" onclick="uploadPPC(${num})">Upload</button>
+      </div>
+      <input type="file" id="ppcUpload${num}" accept="image/*" style="display:none" onchange="handlePPCUpload(${num},this)">`;
     showToast(`PPC Mockup ${num} failed`, 'error');
   }
-  slot.querySelector('.gen-overlay')?.remove();
+  document.body.removeChild(mockEl);
 }
 
 function unlockExport() {
