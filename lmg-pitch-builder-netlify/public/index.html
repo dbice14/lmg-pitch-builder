@@ -239,9 +239,9 @@
   }
 
   /* AD PREVIEWS */
-  .ads-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 16px; margin-top: 12px; }
+  .ads-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 12px; }
   .ad-slot {
-    aspect-ratio: 1;
+    min-height: 200px;
     border: 2px dashed var(--border);
     border-radius: 10px;
     display: flex;
@@ -768,6 +768,7 @@ Use web search to visit the site. Read the homepage, about page, and any service
   "service_provided": "A full sentence summarizing what this company offers.",
   "owner_paragraph": "A 4-sentence Problem to Solve paragraph. Sentence 1: describe who the buyer is and the moment they realize they need this service. Sentence 2: what they want from a provider, echoing the business's own language and promises. Sentence 3: the visual/emotional moment of that need. Sentence 4: the call to action MUST inspire the buyer to Google or search for the business — e.g. 'Google [Business Name] today' or 'Search [Business Name] right now' or 'Look up [Business Name] to get started'. The CTA must inspire a browser search — never a phone call and never a direct website URL. Do NOT name the business anywhere except in this final CTA sentence. Write vividly. Pull from their actual website language.",
   "radio_script": "A compelling 30-second radio script (approximately 75-80 words) that fits this business. The CTA at the end MUST inspire the listener to Google or search for the business — e.g. 'Google [Business Name] today' or 'Search [Business Name] right now'. The CTA must NEVER be a phone call or a website URL — it must always inspire a browser search. No stage directions, just the spoken script.",
+  "keywords": ["8-10 Google search keywords/phrases someone would type to find this type of business locally, e.g. 'plumber near me', 'emergency plumbing Lafayette', 'water heater repair'. Mix branded, service-specific, and local intent keywords."],
   "website_url": "${url}"
 }`;
 }
@@ -792,6 +793,7 @@ function parseAndPopulateResearch(text, fallbackUrl) {
   document.getElementById('r_radioScript').value = obj.radio_script || '';
   document.getElementById('r_websiteUrl').value = obj.website_url || fallbackUrl;
   state.research = obj;
+  state.research.keywords = obj.keywords || [];
 }
 
 function regenerateResearch() {
@@ -805,7 +807,8 @@ function unlockPPC() {
     service_provided: document.getElementById('r_serviceProvided').value,
     owner_paragraph: document.getElementById('r_ownerParagraph').value,
     radio_script: document.getElementById('r_radioScript').value,
-    website_url: document.getElementById('r_websiteUrl').value
+    website_url: document.getElementById('r_websiteUrl').value,
+    keywords: state.research.keywords || []
   };
   // Ensure PPC is calculated with latest industry info
   recalcPPC();
@@ -1223,8 +1226,6 @@ async function generatePptx() {
       '[owner-facing paragraph]': r.owner_paragraph || '',
       '[30 second radio script]': r.radio_script || '',
       '[website url]': r.website_url || '',
-      '[website ': r.website_url || '',
-      'url]': '',
     };
     // PPC calculated values for slide-specific replacements
     const ppcLine = fmt(p.ppcCost);
@@ -1242,9 +1243,16 @@ async function generatePptx() {
     for (const slidePath of slideFiles) {
       let content = await zip.file(slidePath).async('string');
 
-      // Handle [website url] split across XML runs
+      // Handle [website url] split across XML runs — multiple patterns
+      content = content.replace(/<a:t>\[website url\]<\/a:t>/, `<a:t>${r.website_url || ''}</a:t>`);
       content = content.replace(/<a:t>\[website <\/a:t>[\s\S]{0,300}?<a:t>url\]<\/a:t>/,
         `<a:t>${r.website_url || ''}</a:t>`);
+      // Even more aggressive: catch [website in one run, url] in another with anything between
+      content = content.replace(/<a:t>\[website <\/a:t>[\s\S]{0,500}?<a:t>url<\/a:t>[\s\S]{0,200}?<a:t>\]<\/a:t>/,
+        `<a:t>${r.website_url || ''}</a:t>`);
+      // Clean up any remaining stray "url]" text
+      content = content.replace(/<a:t>url\]<\/a:t>/g, '<a:t></a:t>');
+      content = content.replace(/url\]/g, '');
 
       // Handle [ppc 1] split across runs — replace with PPC copy headline
       const ppcHeadline = state.ads.ppcCopy
@@ -1290,32 +1298,114 @@ async function generatePptx() {
         content = content.replace(/<a:t>\$<\/a:t>/, `<a:t>${total6}</a:t>`);
       }
 
-      // Slide 5: PPC line item, clicks column, Total row, Ad Sync Text
+      // Slide 5: PPC line item, clicks column, Total row, Ad Sync Text, Keywords, Representative tier
       if (slidePath.includes('slide5')) {
+        // PPC cost line — handle both joined and split XML runs
         content = content.replace(/<a:t>\$\/mo<\/a:t>/, `<a:t>${ppcLine}/mo</a:t>`);
+        content = content.replace(/<a:t>\$<\/a:t>([\s\S]{0,300}?)<a:t>\/mo<\/a:t>/, `<a:t>${ppcLine}/mo</a:t>$1<a:t></a:t>`);
+
         content = content.replace('<a:t> Estimated Clicks</a:t>', `<a:t>${clicks} Estimated Clicks (Competitive)</a:t>`);
+
+        // Total row — handle both joined and split
         content = content.replace(/<a:t>\$ per month<\/a:t>/, `<a:t>${total6} per month</a:t>`);
-        // Ad Sync Text — replace the blank paragraph after "Ad Sync Text:" with tagline
+        content = content.replace(/<a:t>\$<\/a:t>([\s\S]{0,300}?)<a:t> per month<\/a:t>/, `<a:t>${total6} per month</a:t>$1<a:t></a:t>`);
+        content = content.replace(/<a:t>\$<\/a:t>([\s\S]{0,300}?)<a:t>per month<\/a:t>/, `<a:t>${total6} per month</a:t>$1<a:t></a:t>`);
+
+        // Ad Sync Text — replace the text after "Ad Sync Text:" with the tagline
         const tagline = state.ads.tagline || '';
         if (tagline) {
+          // Try to find "Ad Sync Text" and inject tagline right after it
+          content = content.replace(
+            /(<a:t>Ad Sync Text<\/a:t>)/,
+            `<a:t>Ad Sync Text: ${tagline}</a:t>`
+          );
+          // Also try inserting into next paragraph if the above pattern already has fixed text
           content = content.replace(
             /(<a:t>Ad Sync Text<\/a:t>[\s\S]{0,300}?<a:p>[\s\S]{0,200}?)<a:endParaRPr/,
             `$1<a:r><a:rPr lang="en-US" sz="1400" dirty="0"/><a:t>${tagline}</a:t></a:r></a:p><a:p><a:endParaRPr`
           );
         }
+
+        // Add "Representative" tier info under Google PPC
+        // Find "Google PPC" text and inject tier details after its containing shape/paragraph
+        const repBudget = state.ppc.sagaTiers ? '$' + state.ppc.sagaTiers.representative.toLocaleString() : '';
+        const repCpc = state.ppc.sagaTiers ? state.ppc.sagaTiers.cpc : 0;
+        const repClicks = repBudget && repCpc ? Math.round(state.ppc.sagaTiers.representative / repCpc) : '';
+        const repClicksLow = repClicks ? Math.round(repClicks * 0.9) : '';
+        const repClicksHigh = repClicks ? Math.round(repClicks * 1.1) : '';
+
+        // Insert Representative tier info after "Google PPC" text
+        content = content.replace(
+          /(<a:t>Google PPC<\/a:t>)/,
+          `<a:t>Google PPC</a:t></a:r></a:p>` +
+          `<a:p><a:r><a:rPr lang="en-US" sz="1200" dirty="0"/><a:t>Representative</a:t></a:r></a:p>` +
+          `<a:p><a:r><a:rPr lang="en-US" sz="1100" dirty="0"/><a:t>${repBudget}/mo</a:t></a:r></a:p>` +
+          `<a:p><a:r><a:rPr lang="en-US" sz="1100" dirty="0"/><a:t>${repClicksLow}–${repClicksHigh} Est. Clicks</a:t></a:r></a:p>` +
+          `<a:p><a:r><a:rPr lang="en-US" sz="1200" dirty="0">`
+        );
+
+        // Add Keywords section — find the shape tree and inject a new text box
+        // We'll add keywords as a new shape element in the slide
+        const keywords = (r.keywords || []).slice(0, 10);
+        if (keywords.length > 0) {
+          const keywordLines = keywords.map(kw =>
+            `<a:p><a:pPr algn="l"/><a:r><a:rPr lang="en-US" sz="1000" dirty="0"/><a:t>${kw}</a:t></a:r></a:p>`
+          ).join('');
+
+          const keywordsShape = `<p:sp>
+            <p:nvSpPr>
+              <p:cNvPr id="300" name="Keywords"/>
+              <p:cNvSpPr txBox="1"/>
+              <p:nvPr/>
+            </p:nvSpPr>
+            <p:spPr>
+              <a:xfrm><a:off x="4800000" y="2200000"/><a:ext cx="2200000" cy="3500000"/></a:xfrm>
+              <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+              <a:noFill/>
+            </p:spPr>
+            <p:txBody>
+              <a:bodyPr wrap="square" rtlCol="0"/>
+              <a:lstStyle/>
+              <a:p><a:pPr algn="l"/><a:r><a:rPr lang="en-US" sz="1400" b="1" dirty="0"/><a:t>Keywords</a:t></a:r></a:p>
+              ${keywordLines}
+            </p:txBody>
+          </p:sp>`;
+
+          content = content.replace('</p:spTree>', keywordsShape + '</p:spTree>');
+        }
       }
 
       // Slide 6: two option tables — 6mo and 12mo
       if (slidePath.includes('slide6')) {
+        // PPC cost lines — handle both joined and split
         content = content.replaceAll('<a:t>$/mo</a:t>', `<a:t>${ppcLine}/mo</a:t>`);
+        // Split: <a:t>$</a:t>...<a:t>/mo</a:t>
+        let splitPpcCount = 0;
+        content = content.replace(/<a:t>\$<\/a:t>([\s\S]{0,300}?)<a:t>\/mo<\/a:t>/g, () => {
+          splitPpcCount++;
+          return `<a:t>${ppcLine}/mo</a:t>`;
+        });
+
         content = content.replace('200-220 Estimated Clicks', `${clicks} Estimated Clicks (Competitive)`);
         content = content.replace('200–220 Estimated Clicks', `${clicks} Estimated Clicks (Competitive)`);
         content = content.replace('<a:t> Estimated Clicks</a:t>', `<a:t>${clicks} Estimated Clicks (Competitive)</a:t>`);
+
+        // Total rows — handle both joined and split
         let perMoCount = 0;
         content = content.replace(/<a:t>\$ per month<\/a:t>/g, () => {
           perMoCount++;
           return `<a:t>${perMoCount === 1 ? total6 : total12} per month</a:t>`;
         });
+        // Split: <a:t>$</a:t>...<a:t> per month</a:t> or <a:t>$</a:t>...<a:t>per month</a:t>
+        content = content.replace(/<a:t>\$<\/a:t>([\s\S]{0,300}?)<a:t> ?per month<\/a:t>/g, () => {
+          perMoCount++;
+          return `<a:t>${perMoCount === 2 ? total6 : total12} per month</a:t>`;
+        });
+      }
+
+      // Slide 5 & 6: brute force — any remaining lone <a:t>$</a:t> gets replaced with ppcLine
+      if (slidePath.includes('slide5') || slidePath.includes('slide6')) {
+        content = content.replaceAll('<a:t>$</a:t>', `<a:t>${ppcLine}</a:t>`);
       }
 
       zip.file(slidePath, content);
