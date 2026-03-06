@@ -30,7 +30,7 @@ export default async (request, context) => {
     }
 
     const requestBody = {
-      model: 'gpt-4o-mini',
+      model: useSearch ? 'gpt-4o-mini-search-preview' : 'gpt-4o-mini',
       max_tokens: maxTokens || 500,
       messages: [{ role: 'user', content: prompt }]
     };
