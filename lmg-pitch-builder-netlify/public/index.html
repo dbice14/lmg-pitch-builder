@@ -1427,155 +1427,115 @@ async function buildPptxBlob() {
   for (const slidePath of slideFiles) {
     let content = await zip.file(slidePath).async('string');
 
-    // =========================================================
-    // GLOBAL — runs on every slide
-    // All replacements use the EXACT strings found in the XML dump.
-    // =========================================================
+    // ==============================================================
+    // REPLACEMENT ORDER MATTERS — do split patterns BEFORE simple ones
+    // All strings verified against exact XML dump of blue_k105.pptx
+    // ==============================================================
 
-    // SLIDE 1: [perfect_customer] is split: <a:t>[</a:t><a:t>perfect_customer</a:t><a:t>]</a:t>
+    // ------------------------------------------------------------------
+    // SLIDE 1: [perfect_customer] is split across 3 runs:
+    //   <a:t>[</a:t>  ...runs...  <a:t>perfect_customer</a:t>  ...runs...  <a:t>]</a:t>
+    // Must be done BEFORE any single-bracket replacements
+    // ------------------------------------------------------------------
     content = content.replace(
-      /<a:t>\[<\/a:t>([\s\S]{0,400}?)<a:t>perfect_customer<\/a:t>([\s\S]{0,400}?)<a:t>\]<\/a:t>/,
+      /<a:t>\[<\/a:t>[\s\S]{0,600}?<a:t>perfect_customer<\/a:t>[\s\S]{0,600}?<a:t>\]<\/a:t>/,
       `<a:t>${r.perfect_customer || ''}</a:t>`
     );
-    content = content.replaceAll('[perfect_customer]', r.perfect_customer || '');
-    // SLIDE 3: [perfect customer] (no underscore, lowercase)
-    content = content.replaceAll('[perfect customer]', r.perfect_customer || '');
 
-    // [OWNER-FACING_PARAGRAPH] — slide 2
-    content = content.replaceAll('[OWNER-FACING_PARAGRAPH]', r.owner_paragraph || '');
-
-    // [service provided] — slide 3
-    content = content.replaceAll('[service provided]', r.service_provided || '');
-
-    // [30 second radio script] — slide 4
-    content = content.replaceAll('[30 second radio script]', r.radio_script || '');
-
-    // [CUSTMER] — typo in slide 2 Option 1 heading
-    content = content.replaceAll('Increase: [CUSTMER]', `Increase: ${customer}`);
-    content = content.replaceAll('[CUSTMER]', customer);
-
-    // [CUSTOMER] — slides 2,3,4,5,6,7 — replace the simple version first
-    content = content.replaceAll('[CUSTOMER]', customer);
-
-    // SLIDE 6 heading: split across 3 runs: <a:t> [</a:t> <a:t>CUSTOMER</a:t> <a:t>]</a:t>
-    // Must handle the intervening formatting runs with a loose regex
+    // ------------------------------------------------------------------
+    // SLIDE 6: heading "Increase [CUSTOMER]" is split across 3 runs:
+    //   <a:t> [</a:t>  ...runs...  <a:t>CUSTOMER</a:t>  ...runs...  <a:t>]</a:t>
+    // Must be done BEFORE [CUSTOMER] simple replacement
+    // ------------------------------------------------------------------
     content = content.replace(
-      /<a:t> \[<\/a:t>([\s\S]{0,600}?)<a:t>CUSTOMER<\/a:t>([\s\S]{0,600}?)<a:t>\]<\/a:t>/,
+      /<a:t> \[<\/a:t>[\s\S]{0,800}?<a:t>CUSTOMER<\/a:t>[\s\S]{0,800}?<a:t>\]<\/a:t>/,
       `<a:t> ${customer}</a:t>`
     );
-    // Any remaining bare CUSTOMER in its own tag (after split replacement)
-    content = content.replace(/<a:t>CUSTOMER<\/a:t>/g, `<a:t>${customer}</a:t>`);
 
-    // [CUSTOMER_NAME] — slide 7
-    content = content.replaceAll('_[CUSTOMER_NAME]_', c.name || '');
-    content = content.replaceAll('[CUSTOMER_NAME]', c.name || '');
-
-    // [WEBSITE_URL] — slide 5
-    content = content.replaceAll('[WEBSITE_URL]', r.website_url || '');
-
-    // [AD_SYNC_TEXT] — slide 5
-    content = content.replaceAll('[AD_SYNC_TEXT]', state.ads.tagline || '');
-
-    // "When your patients" — slide 3 (exact string from XML)
-    content = content.replace(
-      'When your patients go searching for you',
-      `When your ${customer} go searching for you`
-    );
-
-    // =========================================================
-    // SLIDE 2
-    // Exact XML: '$[6_MONTH_TOTAL]'  and  '$[12_MONTH_TOTAL]'
-    // =========================================================
-    if (slidePath.includes('slide2')) {
-      content = content.replaceAll('$[6_MONTH_TOTAL]',  total6);
-      content = content.replaceAll('$[12_MONTH_TOTAL]', total12);
-    }
-
-    // =========================================================
-    // SLIDE 3
-    // Exact XML: <a:t>$[6_MONTH_TOTAL] </a:t>  (with trailing space)
-    //            <a:t>Estimated [xxx-xxx] clicks per month</a:t>
-    // =========================================================
-    if (slidePath.includes('slide3')) {
-      content = content.replace('<a:t>$[6_MONTH_TOTAL] </a:t>', `<a:t>${total6} </a:t>`);
-      content = content.replaceAll('$[6_MONTH_TOTAL]', total6);
-      content = content.replace(
-        'Estimated [xxx-xxx] clicks per month',
-        `Estimated ${clicks} clicks per month`
-      );
-    }
-
-    // =========================================================
-    // SLIDE 4
-    // Exact XML: <a:t>$</a:t> in one run, <a:t>[6_MONTH_TOTAL] </a:t> in another
-    // =========================================================
+    // ------------------------------------------------------------------
+    // SLIDE 4: price is split across 2 runs:
+    //   <a:t>$</a:t>  ...run...  <a:t>[6_MONTH_TOTAL] </a:t>
+    // Replace with single tag containing the total (keep the inter-run XML intact)
+    // ------------------------------------------------------------------
     if (slidePath.includes('slide4')) {
-      // Replace the split $ + [6_MONTH_TOTAL] pair
       content = content.replace(
-        /<a:t>\$<\/a:t>([\s\S]{0,600}?)<a:t>\[6_MONTH_TOTAL\] <\/a:t>/,
-        `<a:t>${total6}</a:t>$1<a:t>per month </a:t>`
+        /<a:t>\$<\/a:t>([\s\S]{0,400}?)<a:t>\[6_MONTH_TOTAL\] <\/a:t>/,
+        (_, between) => `<a:t>${total6}</a:t>${between}<a:t> </a:t>`
       );
-      // Fallback for any remaining
-      content = content.replace('<a:t>[6_MONTH_TOTAL] </a:t>', `<a:t>${total6} </a:t>`);
-      content = content.replaceAll('$[6_MONTH_TOTAL]', total6);
     }
 
-    // =========================================================
-    // SLIDE 5 — Summary of Work table
-    // Exact XML strings (verified from dump):
-    //   '[XXX-XXX] Estimated Clicks [COMPETETIVE]'
-    //   <a:t>$[COMPETETIVE_PPC_COST]/</a:t>
-    //   <a:t>$[6_MONTH_TOTAL] </a:t>
-    //   <a:t>[KEYWORDS]</a:t>
-    //   <a:t>Google PPC</a:t>  → already says 'Keywords' per user request (keep template as-is)
-    // =========================================================
+    // ------------------------------------------------------------------
+    // NOW do all simple (non-split) replacements
+    // ------------------------------------------------------------------
+
+    // SLIDE 2 — exact strings from XML
+    if (slidePath.includes('slide2')) {
+      content = content.replace('[OWNER-FACING_PARAGRAPH]', r.owner_paragraph || '');
+      content = content.replace('Increase: [CUSTMER]', `Increase: ${customer}`);
+      content = content.replace('$[6_MONTH_TOTAL]', total6);
+      content = content.replace('Increase: [CUSTOMER]', `Increase: ${customer}`);
+      content = content.replace('$[12_MONTH_TOTAL]', total12);
+    }
+
+    // SLIDE 3 — exact strings from XML
+    if (slidePath.includes('slide3')) {
+      content = content.replace('[perfect customer]', r.perfect_customer || '');
+      content = content.replace('[service provided]', r.service_provided || '');
+      content = content.replace('Estimated [xxx-xxx] clicks per month', `Estimated ${clicks} clicks per month`);
+      content = content.replace('When your patients go searching for you', `When your ${customer} go searching for you`);
+      // Two occurrences of [CUSTOMER] on slide 3
+      content = content.replaceAll('<a:t>[CUSTOMER]</a:t>', `<a:t>${customer}</a:t>`);
+      // Price — exact XML: <a:t>$[6_MONTH_TOTAL] </a:t>  (trailing space)
+      content = content.replace('<a:t>$[6_MONTH_TOTAL] </a:t>', `<a:t>${total6} </a:t>`);
+    }
+
+    // SLIDE 4 — exact strings from XML (split $ already handled above)
+    if (slidePath.includes('slide4')) {
+      content = content.replace('<a:t>[CUSTOMER]</a:t>', `<a:t>${customer}</a:t>`);
+      content = content.replace('[30 second radio script]', r.radio_script || '');
+      // [ppc_1], [Ppc_2], [display_1], [display_2] are image placeholder labels — leave as-is
+    }
+
+    // SLIDE 5 — exact strings from XML
     if (slidePath.includes('slide5')) {
-      content = content.replace(
-        '[XXX-XXX] Estimated Clicks [COMPETETIVE]',
-        `${clicks} Estimated Clicks`
-      );
-      content = content.replace(
-        '<a:t>$[COMPETETIVE_PPC_COST]/</a:t>',
-        `<a:t>${ppcLine}/</a:t>`
-      );
-      content = content.replace(
-        '<a:t>$[6_MONTH_TOTAL] </a:t>',
-        `<a:t>${total6} </a:t>`
-      );
-      content = content.replaceAll('$[6_MONTH_TOTAL]', total6);
-      // Keywords list
+      content = content.replace('<a:t>[CUSTOMER]</a:t>', `<a:t>${customer}</a:t>`);
+      // Clicks row — exact: '[XXX-XXX] Estimated Clicks [COMPETETIVE]'
+      content = content.replace('[XXX-XXX] Estimated Clicks [COMPETETIVE]', `${clicks} Estimated Clicks`);
+      // PPC cost — exact: '$[COMPETETIVE_PPC_COST]/'
+      content = content.replace('<a:t>$[COMPETETIVE_PPC_COST]/</a:t>', `<a:t>${ppcLine}/</a:t>`);
+      // Total — exact: '$[6_MONTH_TOTAL] ' (trailing space)
+      content = content.replace('<a:t>$[6_MONTH_TOTAL] </a:t>', `<a:t>${total6} </a:t>`);
+      // Website
+      content = content.replace('[WEBSITE_URL]', r.website_url || '');
+      // Ad sync
+      content = content.replace('[AD_SYNC_TEXT]', state.ads.tagline || '');
+      // Keywords
       const kws = (r.keywords || []).slice(0, 12);
-      content = content.replace(
-        '<a:t>[KEYWORDS]</a:t>',
-        `<a:t>${kws.join('\n')}</a:t>`
-      );
+      content = content.replace('<a:t>[KEYWORDS]</a:t>', `<a:t>${kws.join('\n')}</a:t>`);
     }
 
-    // =========================================================
-    // SLIDE 6 — Agreement tables (6mo and 12mo)
-    // Exact XML strings (verified from dump):
-    //   '[XXX-XXX] Estimated Clicks '   (in own <a:t>, appears twice)
-    //   '$ [COMPETETIVE_PPC_COST] / '   (in own <a:t>, note spaces, appears twice)
-    //   '$[TOTAL] '                      (in own <a:t>, appears twice: 1st=6mo, 2nd=12mo)
-    //   'K105 '                          (appears twice — user says changed to Audio in template)
-    // =========================================================
+    // SLIDE 6 — Agreement tables — exact strings from XML
     if (slidePath.includes('slide6')) {
-      // Clicks — both tables
-      content = content.replaceAll(
-        '[XXX-XXX] Estimated Clicks ',
-        `${clicks} Estimated Clicks `
-      );
-      // PPC cost — both tables (note the spaces around the slash)
-      content = content.replaceAll(
-        '$ [COMPETETIVE_PPC_COST] / ',
-        `${ppcLine} / `
-      );
-      // Totals — first occurrence = 6mo, second = 12mo
+      // Split heading already handled above — now handle remaining standalone [CUSTOMER]
+      content = content.replace('<a:t>[CUSTOMER]</a:t>', `<a:t>${customer}</a:t>`);
+      // Clicks — appears twice (both tables), exact: '[XXX-XXX] Estimated Clicks '
+      content = content.replaceAll('[XXX-XXX] Estimated Clicks ', `${clicks} Estimated Clicks `);
+      // PPC cost — appears twice (both tables), exact: '$ [COMPETETIVE_PPC_COST] / '
+      content = content.replaceAll('$ [COMPETETIVE_PPC_COST] / ', `${ppcLine} / `);
+      // Totals — appears twice: 1st = 6mo, 2nd = 12mo  exact: '$[TOTAL] '
       let tCount = 0;
       content = content.replace(/<a:t>\$\[TOTAL\] <\/a:t>/g, () => {
         tCount++;
         return `<a:t>${tCount === 1 ? total6 : total12} </a:t>`;
       });
+    }
+
+    // SLIDE 7 — exact strings from XML
+    if (slidePath.includes('slide7')) {
+      // '_[CUSTOMER_NAME]_'  (with underscores)
+      content = content.replace('_[CUSTOMER_NAME]_', c.name || '');
+      // '_[CUSTOMER_NAME] '  (trailing space, no closing underscore)
+      content = content.replace('_[CUSTOMER_NAME] ', `${c.name || ''} `);
     }
 
     // =========================================================
