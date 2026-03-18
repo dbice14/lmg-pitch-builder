@@ -511,47 +511,31 @@
     </div>
 
     <div style="margin-top:16px;">
-      <!-- PPC PDF Upload & Saga Link -->
-      <div style="background:rgba(0,113,227,0.04);border:1.5px dashed rgba(0,113,227,0.25);border-radius:14px;padding:16px 18px;margin-bottom:16px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:10px;">
-          <div>
-            <div style="font-weight:700;font-size:0.88rem;color:var(--ink);margin-bottom:2px;">📊 PPC Budget Estimator</div>
-            <div style="font-size:0.78rem;color:var(--mid);">Generate your estimate on the Saga tool, then upload the PDF below — numbers will auto-fill.</div>
-          </div>
-          <a href="https://sagappcestimate.netlify.app" target="_blank" class="btn btn-ghost btn-sm" style="white-space:nowrap;text-decoration:none;">
-            Open Saga PPC Estimator ↗
-          </a>
+      <!-- Saga Link -->
+      <div style="background:rgba(0,113,227,0.04);border:1.5px solid rgba(0,113,227,0.15);border-radius:14px;padding:14px 18px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <div>
+          <div style="font-weight:700;font-size:0.88rem;color:var(--ink);margin-bottom:2px;">📊 Saga PPC Budget Estimator</div>
+          <div style="font-size:0.78rem;color:var(--mid);">Generate your estimate there, then enter the Competitive budget and click range below.</div>
         </div>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <label for="ppcPdfUpload" style="margin:0;text-transform:none;letter-spacing:0;font-size:0.85rem;font-weight:600;color:var(--ink);cursor:pointer;
-            background:rgba(255,255,255,0.7);border:1.5px solid var(--border);border-radius:10px;padding:9px 16px;display:inline-flex;align-items:center;gap:6px;transition:all 0.2s;"
-            onmouseover="this.style.borderColor='var(--gold)'" onmouseout="this.style.borderColor='var(--border)'">
-            📎 Upload PPC PDF
-          </label>
-          <input type="file" id="ppcPdfUpload" accept="application/pdf" style="display:none" onchange="parsePpcPdf(this)" />
-          <span id="ppcPdfLabel" style="font-size:0.8rem;color:var(--mid);">No PDF uploaded yet</span>
-        </div>
+        <a href="https://sagappcestimate.netlify.app" target="_blank" class="btn btn-ghost btn-sm" style="white-space:nowrap;text-decoration:none;">Open Estimator ↗</a>
       </div>
 
-      <label>Monthly Google PPC Budget <span style="font-weight:300;text-transform:none;letter-spacing:0;color:var(--mid);font-size:0.78rem;margin-left:4px;">— enter manually or upload PDF above</span></label>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-        <div style="position:relative;flex:0 0 200px;">
-          <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:1rem;color:var(--mid);font-weight:600;">$</span>
-          <input type="number" id="ppcCost" placeholder="e.g. 2220" min="0" step="50"
-            style="padding-left:24px;font-size:1.1rem;font-weight:600;"
-            oninput="recalcPPC()" />
-        </div>
-        <span style="font-size:0.85rem;color:var(--mid);">/&nbsp;month</span>
+      <label>Monthly Google PPC Budget</label>
+      <div style="position:relative;max-width:220px;">
+        <span style="position:absolute;left:12px;top:50%;transform:translateY(-50%);font-size:1rem;color:var(--mid);font-weight:600;">$</span>
+        <input type="number" id="ppcCost" placeholder="e.g. 2220" min="0" step="50"
+          style="padding-left:24px;font-size:1.1rem;font-weight:600;"
+          oninput="recalcPPC()" />
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px;">
         <div>
           <label style="margin-top:0;">Estimated Clicks — Low</label>
-          <input type="number" id="ppcClicksLow" placeholder="e.g. 622" min="0" step="1" oninput="recalcPPCClicks()" />
+          <input type="number" id="ppcClicksLow" placeholder="e.g. 622" min="0" step="1" oninput="recalcPPC()" />
         </div>
         <div>
           <label style="margin-top:0;">Estimated Clicks — High</label>
-          <input type="number" id="ppcClicksHigh" placeholder="e.g. 684" min="0" step="1" oninput="recalcPPCClicks()" />
+          <input type="number" id="ppcClicksHigh" placeholder="e.g. 684" min="0" step="1" oninput="recalcPPC()" />
         </div>
       </div>
       <div id="ppcInlinePreview" style="display:none;margin-top:12px;background:var(--paper);border:1px solid var(--border);border-radius:8px;padding:12px 16px;">
@@ -1001,88 +985,10 @@ function recalcPPC() {
   };
 }
 
-function recalcPPCClicks() {
-  recalcPPC();
-}
 
 
-// =====================
-// PPC PDF PARSER
-// =====================
-async function parsePpcPdf(input) {
-  const file = input.files[0];
-  if (!file) return;
-  document.getElementById('ppcPdfLabel').textContent = `📄 ${file.name} — parsing...`;
 
-  try {
-    // Read file as base64
-    const base64 = await new Promise((res, rej) => {
-      const reader = new FileReader();
-      reader.onload = () => res(reader.result.split(',')[1]);
-      reader.onerror = rej;
-      reader.readAsDataURL(file);
-    });
 
-    // Use Claude API to extract values from the PPC PDF
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 500,
-        messages: [{
-          role: 'user',
-          content: [
-            {
-              type: 'document',
-              source: { type: 'base64', media_type: 'application/pdf', data: base64 }
-            },
-            {
-              type: 'text',
-              text: `Extract from this PPC Budget Estimate PDF and return ONLY valid JSON, no markdown, no explanation:
-{
-  "competitive_budget": <number, the Competitive monthly budget dollar amount>,
-  "competitive_clicks_low": <number, lower end of Competitive click range>,
-  "competitive_clicks_high": <number, upper end of Competitive click range>,
-  "keywords": [<array of campaign keyword strings>]
-}
-If you cannot find a value, use null.`
-            }
-          ]
-        }]
-      })
-    });
-
-    const data = await response.json();
-    const text = (data.content || []).find(b => b.type === 'text')?.text || '';
-    const match = text.replace(/```json|```/g, '').trim().match(/\{[\s\S]*\}/);
-    if (!match) throw new Error('Could not parse PDF data');
-    const parsed = JSON.parse(match[0]);
-
-    // Populate the fields
-    if (parsed.competitive_budget) {
-      document.getElementById('ppcCost').value = parsed.competitive_budget;
-    }
-    if (parsed.competitive_clicks_low) {
-      document.getElementById('ppcClicksLow').value = parsed.competitive_clicks_low;
-    }
-    if (parsed.competitive_clicks_high) {
-      document.getElementById('ppcClicksHigh').value = parsed.competitive_clicks_high;
-    }
-    if (parsed.keywords && parsed.keywords.length > 0) {
-      state.research.keywords = parsed.keywords;
-    }
-
-    recalcPPC();
-    document.getElementById('ppcPdfLabel').textContent = `✅ ${file.name} — values loaded!`;
-    showToast('PPC PDF parsed — values filled in!', 'success');
-  } catch(e) {
-    console.error('PDF parse error:', e);
-    document.getElementById('ppcPdfLabel').textContent = `⚠️ Could not parse — enter values manually`;
-    showToast('Could not auto-parse PDF — please enter values manually', 'error');
-  }
-  input.value = '';
-}
 
 function getCTR() {
   const industry = state.client.industry || '';
